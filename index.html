@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Software Engineer Competency Assessment</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom card styles */
+        .card {
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            border: 1px solid #e5e7eb;
+        }
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .card-content {
+            padding: 1.5rem;
+        }
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const CompetencyAssessment = () => {
+            const [responses, setResponses] = useState({});
+            const [currentScore, setCurrentScore] = useState(0);
+            const [maxScore, setMaxScore] = useState(0);
+
+            // Define competency level mapping
+            const competencyLevels = {
+                "0": {
+                    "sub_levels": [20.0],
+                    "min_score": 20.0,
+                    "tooltip": "",
+                    "name": "Beginner",
+                    "color": "bg-red-500"
+                },
+                "1": {
+                    "sub_levels": [26.0, 32.0, 39.0],
+                    "min_score": 39.0,
+                    "tooltip": "B",
+                    "name": "Beginner",
+                    "color": "bg-orange-500"
+                },
+                "2": {
+                    "sub_levels": [45.0, 53.0, 60.0],
+                    "min_score": 60.0,
+                    "tooltip": "C",
+                    "name": "Competent",
+                    "color": "bg-yellow-500"
+                },
+                "3": {
+                    "sub_levels": [65.0, 70.0, 76.0],
+                    "min_score": 76.0,
+                    "tooltip": "VC",
+                    "name": "Very Competent",
+                    "color": "bg-blue-500"
+                },
+                "4": {
+                    "sub_levels": [79.0, 82.0, 87.0],
+                    "min_score": 87.0,
+                    "tooltip": "SC",
+                    "name": "Super Competent",
+                    "color": "bg-purple-500"
+                },
+                "5": {
+                    "sub_levels": [100.0],
+                    "min_score": 100.0,
+                    "tooltip": "RC",
+                    "name": "Ridiculously Competent",
+                    "color": "bg-green-500"
+                }
+            };
+
+            // Function to determine current competency level and sub-level
+            const getCurrentCompetencyLevel = () => {
+                const percentage = getScorePercentage();
+                
+                // Check each level from highest to lowest
+                for (let level = 5; level >= 0; level--) {
+                    const levelData = competencyLevels[level.toString()];
+                    
+                    // For level 5 (RC), check if >= 100%
+                    if (level === 5 && percentage >= levelData.sub_levels[0]) {
+                        return {
+                            level: level,
+                            subLevel: 1,
+                            name: levelData.name,
+                            tooltip: levelData.tooltip,
+                            color: levelData.color,
+                            percentage: percentage
+                        };
+                    }
+                    
+                    // For levels 1-4, check if >= minimum score for that level
+                    if (level >= 1 && level <= 4) {
+                        // Get the previous level's minimum score as the threshold
+                        const prevLevel = (level - 1).toString();
+                        const threshold = level === 1 ? 20.0 : competencyLevels[prevLevel].min_score;
+                        
+                        if (percentage >= threshold) {
+                            // Find the appropriate sub-level within this level
+                            let subLevel = 1;
+                            for (let i = 0; i < levelData.sub_levels.length; i++) {
+                                if (percentage >= levelData.sub_levels[i]) {
+                                    subLevel = i + 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            
+                            return {
+                                level: level,
+                                subLevel: subLevel,
+                                name: levelData.name,
+                                tooltip: levelData.tooltip,
+                                color: levelData.color,
+                                percentage: percentage
+                            };
+                        }
+                    }
+                    
+                    // For level 0, check if >= 20%
+                    if (level === 0 && percentage >= levelData.sub_levels[0]) {
+                        return {
+                            level: level,
+                            subLevel: 1,
+                            name: levelData.name,
+                            tooltip: levelData.tooltip,
+                            color: levelData.color,
+                            percentage: percentage
+                        };
+                    }
+                }
+                
+                // Below 20%
+                return {
+                    level: -1,
+                    subLevel: 1,
+                    name: "Getting Started",
+                    tooltip: "",
+                    color: "bg-gray-400",
+                    percentage: percentage
+                };
+            };
+
+            // Define weightages for each subtopic
+            const weightages = {
+                "Breadth of experience": 5.225,
+                "Commitment and Dedication": 4,
+                "Dependability": 5.225,
+                "Effective writing": 3,
+                "Collaboration": 5.225,
+                "Depth of experience": 5.225,
+                "Open to Feedback": 3,
+                "Responsiveness": 4,
+                "Breadth of experience (Applicable for mobile developers)": 5.2,
+                "Comprehension": 4,
+                "Initiative": 4,
+                "Code Architecture": 5.225,
+                "Mentorship and succession planning": 2,
+                "Speaking": 4,
+                "Continuous Learning": 3,
+                "Project Delivery": 5.225,
+                "Code Management": 4,
+                "Self-Discipline": 3,
+                "Proficiency in Hybrid Mobile Development": 4,
+                "Software Testing": 3,
+                "Business Domain Knowledge": 4,
+                "Maturity of Coding Workflow": 5.225,
+                "Problem Solving": 5.225,
+                "Reliable and Clean Code": 4
+            };
+
+            // Define all competency areas with their exact options from the PDF
+            const competencyData = {
+                "Technical execution": {
+                    sections: {
+                        "Breadth of experience": [
+                            {
+                                id: "breadth_1",
+                                text: "Breadth of experience",
+                                weightage: weightages["Breadth of experience"],
+                                options: [
+                                    "Has somewhat experience with any frameworks or libraries",
+                                    "Has experience either on the frontend OR the backend with a few (1 or 2) frameworks",
+                                    "Has experience on both the frontend AND the backend with a few (1 or 2) frameworks",
+                                    "Has experience either on the frontend OR the backend with multiple (> 2) frameworks",
+                                    "Has experience on frontend, backend AND DevOps with multiple (> 2) frameworks",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Depth of experience": [
+                            {
+                                id: "depth_1",
+                                text: "Depth of experience",
+                                weightage: weightages["Depth of experience"],
+                                options: [
+                                    "Has basic experience in at least 1 framework, takes help from others when stuck",
+                                    "Has advance experience in at least 1 framework, can work on it independently",
+                                    "Is an expert in at least 1 framework and helps and mentors others within the team",
+                                    "Is an expert in at least 1 framework and helps and mentors others within the company beyond their team",
+                                    "Is an expert in at least 1 framework, has made non trivial contribution to the core of the technology and helps and mentors others in the industry beyond the company",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Breadth of experience (Applicable for mobile developers)": [
+                            {
+                                id: "mobile_1",
+                                text: "Breadth of experience (Applicable for mobile developers)",
+                                weightage: weightages["Breadth of experience (Applicable for mobile developers)"],
+                                options: [
+                                    "Has superficial experience with basic mobile components",
+                                    "Has deep experience in basic mobile components and at least one primary language",
+                                    "Has deep experience with at least one architectural pattern, familiar with advanced concepts like reactive programming, background tasks, dependency injection and views customizations and animations",
+                                    "Has deep experience with basic mobile components and have good understanding of multiple architectural patterns, databases and can work on complex UI components",
+                                    "Has deep experience with advanced and modern techniques, has great command in writing build scripts, both complex and declarative UI, reactive programming and all primary languages",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Code Architecture": [
+                            {
+                                id: "arch_1",
+                                text: "Code Architecture",
+                                weightage: weightages["Code Architecture"],
+                                options: [
+                                    "Has written small non-complex functions and classes in one area of code",
+                                    "Has made changes in many areas of code for a project in production",
+                                    "Has owned and designed modules for a project in production",
+                                    "Has owned and designed architecture of an entire project in production",
+                                    "Has owned and designed architecture of many (>3) projects in production",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Project Delivery": [
+                            {
+                                id: "delivery_1",
+                                text: "Project Delivery",
+                                weightage: weightages["Project Delivery"],
+                                options: [
+                                    "Has shipped production code with some help from others",
+                                    "Has shipped small fixes or non-trivial tasks for multiple modules in a project independently",
+                                    "Has designed and shipped full modules for one or more non-trivial projects",
+                                    "Has designed and shipped multiple full projects, each with multiple modules, as a primary lead",
+                                    "Has designed and shipped reusable code that is used by other developers outside the boundaries of the organization as frameworks and/or libraries",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Code Management": [
+                            {
+                                id: "mgmt_1",
+                                text: "Code Management",
+                                weightage: weightages["Code Management"],
+                                options: [
+                                    "Executes basic commands (add, commit, push). Clones/checks out repositories",
+                                    "Manages branches, collaborates via remotes (push/pull), resolves basic merge conflicts",
+                                    "Utilizes advanced techniques (rebasing, branching strategies, staging). Efficiently manages conflicts (command line). Regularly applies these skills in daily development workflow",
+                                    "Expert in all core Git functionalities",
+                                    "Deep understanding of Git's internals. Contributes to the Git ecosystem (open source, extensions)",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Proficiency in Hybrid Mobile Development": [
+                            {
+                                id: "hybrid_1",
+                                text: "Proficiency in Hybrid Mobile Development",
+                                weightage: weightages["Proficiency in Hybrid Mobile Development"],
+                                options: [
+                                    "Understands React Native/Flutter(or similar frameworks) at a basic level with a fair understanding of JavaScript & Typescript fundamentals, Has created simple UI screens",
+                                    "Has built dynamic apps with state management, handles platform-specific issues (mainly for iOS & Android), and debugs effectively, knows the common limitations & issues on both iOS & Android along with build & deployment processes",
+                                    "Has in-depth experience in React Native/Flutter(or similar frameworks) architecture, optimizations, complex state management, and custom native module integration and augmentation. Is an expert in node architecture, understands the transformation from JS to native code, can create config files for settings & write scripts for effective builds",
+                                    "In addition to the points mentioned above, has applied in-depth experience in React Native/Flutter(and similar frameworks) in more than one project and regularly coaches people outside the team on the same",
+                                    "In addition to points shared in 3 and 4, has reviewed react native/Flutter(and similar frameworks) architecture for various teams in the Company and is consulted by small to large teams within and outside the company or the form of open source contributions in hybrid mobile frameworks",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Software Testing": [
+                            {
+                                id: "testing_1",
+                                text: "Software Testing",
+                                weightage: weightages["Software Testing"],
+                                options: [
+                                    "Has never written unit tests with support",
+                                    "Has written unit tests for at least one project in production",
+                                    "has written multiple types of test for one or more than one project",
+                                    "has written tests for multiple variety of projects in production and shared their knowledge with a wider audience in a formal/informal capacity",
+                                    "has written unit and/or functional tests for multiple variety of projects in production with thorough understanding of different testing frameworks, has trained others within and outside the organization",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Business Domain Knowledge": [
+                            {
+                                id: "domain_1",
+                                text: "Business Domain Knowledge",
+                                weightage: weightages["Business Domain Knowledge"],
+                                options: [
+                                    "Has basic understanding of the business domain",
+                                    "Provides answers to a majority of internal questions regarding the business domain",
+                                    "Team expert on the business domain but yet to be recognized by the client",
+                                    "Recognized outside the team as well as by a single client as an expert of the business domain",
+                                    "Recognized in the industry as an expert of the business domain and can further expand the business domain with their own ideas",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Maturity of Coding Workflow": [
+                            {
+                                id: "workflow_1",
+                                text: "Maturity of Coding Workflow",
+                                weightage: weightages["Maturity of Coding Workflow"],
+                                options: [
+                                    "Relies on basic tools like Notepad or simple IDEs, with no automation or AI support",
+                                    "Uses lightweight editors like VS Code or PyCharm with basic features (e.g., syntax highlighting, simple extensions)",
+                                    "Adopts advanced IDE features (e.g., refactoring tools, debugging support), integrates tools like linters and formatters. Mentors team members to improve tool usage",
+                                    "Incorporates powerful tools (e.g., deployment pipelines, VI for power scripting), leverages advanced IDE extensions. Drives workflow optimization across the organization",
+                                    "Masters AI-enabled coding tools (e.g., GitHub CoPilot, Tabnine), builds customized integrations. Contributes to industry standards or open-source coding tools",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Problem Solving": [
+                            {
+                                id: "problem_1",
+                                text: "Problem Solving",
+                                weightage: weightages["Problem Solving"],
+                                options: [
+                                    "Needs help to solve simple problems",
+                                    "Can mostly solve problems on their own",
+                                    "Is the go-to person within the team to solve problems",
+                                    "Is the go-to person within the organization to solve problems",
+                                    "Is recognized in the industry for solving problems",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Reliable and Clean Code": [
+                            {
+                                id: "clean_1",
+                                text: "Reliable and Clean Code",
+                                weightage: weightages["Reliable and Clean Code"],
+                                options: [
+                                    "Needs supervision in following basic coding standards to produce reliable code",
+                                    "Always writes non-trivial and reliable code without guidance following best practices of coding",
+                                    "Recognized as the go-to person in the team for following best practices of coding and writing reliable code",
+                                    "Recognized as an expert in the company on coding standards and best practices",
+                                    "Has written and reviewed non-trivial code that the larger community outside the organization can understand and consume. Also, trains and mentors people in the industry on coding best practices",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "Communication": {
+                    sections: {
+                        "Effective writing": [
+                            {
+                                id: "writing_1",
+                                text: "Effective writing",
+                                weightage: weightages["Effective writing"],
+                                options: [
+                                    "Unable to write clear notes in english whether they are emails or other messages",
+                                    "Able to write small to large passages without grammatical errors to convey intent",
+                                    "Able to write small to large passages of text with good diction, without grammatical errors and clarity of thought",
+                                    "Is considered a top communicator whose writings are of interest not just within the team but within the organization as well. Has formally and informally coached members towards effective writing skills",
+                                    "Is considered a top communicator whose writings are of interest not just within the organization but also outside the organization",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Responsiveness": [
+                            {
+                                id: "response_1",
+                                text: "Responsiveness",
+                                weightage: weightages["Responsiveness"],
+                                options: [
+                                    "Struggles in responding timely; over email, meetings or slack",
+                                    "Is somewhat responsive; over email, meetings, and slack without missing any important information in the communication",
+                                    "Is recognized by the team and client as always responsive; punctual and active in meetings; responds to emails and Slack with attention to detail",
+                                    "Is recognized by people outside the team and multiple clients for being always responsive and for actively contributing valuable insights to discussions while supporting company-level initiatives with thoughtful input",
+                                    "Is recognized in the industry as someone very responsive; is always proactive and contributing to positive efforts for the industry",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Comprehension": [
+                            {
+                                id: "comprehension_1",
+                                text: "Comprehension",
+                                weightage: weightages["Comprehension"],
+                                options: [
+                                    "Struggles to comprehend information; written and verbal",
+                                    "Somewhat comprehends information well; written and verbal",
+                                    "Recognized in the team and client as someone who always comprehends information well; written and verbal",
+                                    "Is recognized in the company with outstanding comprehension skills; is consulted by people in and outside the team on it",
+                                    "Is recognized in the industry with outstanding comprehension skills; is consulted by people in and outside the company on it",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Speaking": [
+                            {
+                                id: "speaking_1",
+                                text: "Speaking",
+                                weightage: weightages["Speaking"],
+                                options: [
+                                    "Struggles to communicate; is marked under level 1 as part of internal communication assessment (or similar platforms)",
+                                    "Somewhat communicates; is marked under level 2 as part of internal communication assessment (or similar platforms)",
+                                    "Always fluent; is marked level 3 or 4 as part of internal communication assessment (or similar platforms)",
+                                    "Is recognized in the company with outstanding speaking skills; is marked level 5 or above; has trained people in and outside the team on 3 on multiple occasions",
+                                    "Is recognized in the industry as someone with outstanding speaking skills and has trained people outside the company on it on multiple occasions",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "Teamwork": {
+                    sections: {
+                        "Dependability": [
+                            {
+                                id: "depend_1",
+                                text: "Dependability",
+                                weightage: weightages["Dependability"],
+                                options: [
+                                    "Is inconsistent in delivering results (with frequent unpleasant surprises). Is not transparent about how they are spending their work hours to not only the team but also the client",
+                                    "Is somewhat consistent in delivering results (with few unpleasant surprises). Can sometimes give visibility of their work hours and tasks to the team and client",
+                                    "Is often consistent in delivering results, tries to put their 100% effort. Is mostly transparent about how they are spending their time to the team and client",
+                                    "Puts their 100% effort most of the time and very consistent in delivering results with no or negligible unpleasant surprises for the team and especially the client",
+                                    "Seen as example for the rest of the team in terms of work transparency and consistency. Coaches members within the team and organization to do the same",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Collaboration": [
+                            {
+                                id: "collab_1",
+                                text: "Collaboration",
+                                weightage: weightages["Collaboration"],
+                                options: [
+                                    "Prefers to work in isolation; has rarely helped others",
+                                    "Somewhat collaborate with the team; has sometimes helped others",
+                                    "Always collaborating with the team; is the go-to person in the team when someone needs help",
+                                    "Has collaborated with multiple (> 3) teams, is the go-to person in the company when someone needs help",
+                                    "Has collaborated with multiple people in the industry, is considered the go-to person in the industry when someone needs help",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ]
+                    }
+                },
+                "Maturity": {
+                    sections: {
+                        "Commitment and Dedication": [
+                            {
+                                id: "commit_1",
+                                text: "Commitment and Dedication",
+                                weightage: weightages["Commitment and Dedication"],
+                                options: [
+                                    "Tries to live up to the commitments made to the team and/or client, often gets distracted",
+                                    "Can sometimes meet commitments to the team and/or client, has other priorities outside the company/project",
+                                    "Can always meet commitments to the team and/or client except when there are genuine issues which he/she can explain with clarity",
+                                    "Makes commitments very thoughtfully, sets clear and realistic expectations and always meets or exceeds expectations",
+                                    "Owns the project/live. Spends any spare time on adding value beyond what's required by the team/client. Coaches others to do the same",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Open to Feedback": [
+                            {
+                                id: "feedback_1",
+                                text: "Open to Feedback",
+                                weightage: weightages["Open to Feedback"],
+                                options: [
+                                    "Frequently struggles in accepting mistake or nature, tries to out his seldom taken feedback well, gets defensive",
+                                    "Tries to be open to suggestions and feedback, often takes it well, doesn't get defensive all the time",
+                                    "Always Takes suggestions, criticism positively when received from anyone in the team. Accept mistakes and failures whenever someone points it out. Makes incremental progress on the feedback received",
+                                    "Periodically seeks feedback from everyone in the team and client. Rapidly improves based on that feedback. Owns enormously/failure, is proactive in sharing it without any shame",
+                                    "Proactively seeks feedback, suggestions, criticism from everyone they interact with, not just within the team but in the organization. Preaches others to do the same and set an example for other members to be vulnerable (formally and informally)",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Initiative": [
+                            {
+                                id: "initiative_1",
+                                text: "Initiative",
+                                weightage: weightages["Initiative"],
+                                options: [
+                                    "Has rarely taken initiative for improvement; at a personal or team capacity",
+                                    "Has somewhat taken initiatives for improvement; at a personal and team level",
+                                    "Has consistently taken initiatives for improvement; at a personal and team level",
+                                    "Has taken initiatives that are of value to multiple teams in the organization",
+                                    "Has taken initiatives that are of value to multiple people and organizations in the industry",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Mentorship and succession planning": [
+                            {
+                                id: "mentorship_1",
+                                text: "Mentorship and succession planning",
+                                weightage: weightages["Mentorship and succession planning"],
+                                options: [
+                                    "Has helped other members in the team",
+                                    "Identifies one successor for the role with POD and actively works on the person's development plan. The team member is now working independently in the team/another team",
+                                    "Has developed their own successor and successors for critical roles. Has identified and trained at least 1 mentor in their team",
+                                    "Has coached mentors mentoring other members in the team and company. Is the go-to person for formal/informal coaching. People often reach out to them for expert advice",
+                                    "Is considered a mentor/coach for people not only within the company but outside too",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Continuous Learning": [
+                            {
+                                id: "learning_1",
+                                text: "Continuous Learning",
+                                weightage: weightages["Continuous Learning"],
+                                options: [
+                                    "Rarely shows learning aptitude; tries to learn something new only when explicitly asked",
+                                    "Sometimes shows learning aptitude; actively acquires knowledge with keen interest",
+                                    "Mostly shows interest in learning, is flexible on diversifying their skills profile",
+                                    "Always shows interest in learning new things quickly; has an ongoing habit of acquiring knowledge",
+                                    "Is always up to date with all latest trends/technologies and utilizes multiple mediums of learning",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ],
+                        "Self-Discipline": [
+                            {
+                                id: "discipline_1",
+                                text: "Self-Discipline",
+                                weightage: weightages["Self-Discipline"],
+                                options: [
+                                    "Rarely is organized and structured in their work",
+                                    "Sometimes is organized and structured in their work",
+                                    "On Average is organized and structured in their work",
+                                    "Mostly is organized and structured in their work",
+                                    "Always is organized and structured in their work",
+                                    "Not applicable to the current role",
+                                    "I don't know"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            };
+
+            // Initialize default responses (4th option for all questions)
+            useEffect(() => {
+                const defaultResponses = {};
+                Object.values(competencyData).forEach(area => {
+                    Object.values(area.sections).forEach(questions => {
+                        questions.forEach(question => {
+                            defaultResponses[question.id] = 0; // 4th option (index 3)
+                        });
+                    });
+                });
+                setResponses(defaultResponses);
+            }, []);
+
+            // Calculate total max score on component mount (this should be 100 for percentage calculation)
+            useEffect(() => {
+                let totalWeightage = 0;
+                Object.values(competencyData).forEach(area => {
+                    Object.values(area.sections).forEach(questions => {
+                        questions.forEach(question => {
+                            totalWeightage += question.weightage;
+                        });
+                    });
+                });
+                setMaxScore(totalWeightage); // This should be 100 (total of all weightages)
+            }, []);
+
+            // Update score when responses change
+            useEffect(() => {
+                let totalScore = 0;
+                let totalApplicableWeightage = 0;
+                
+                Object.entries(responses).forEach(([questionId, selectedOption]) => {
+                    if (selectedOption !== null && selectedOption !== undefined) {
+                        // Find the question
+                        Object.values(competencyData).forEach(area => {
+                            Object.values(area.sections).forEach(questions => {
+                                const question = questions.find(q => q.id === questionId);
+                                if (question) {
+                                    // Only count questions that are answered with actual competency levels
+                                    // (not "Not applicable" or "I don't know")
+                                    if (selectedOption < question.options.length - 2) {
+                                        const competencyLevel = selectedOption + 1; // +1 because index starts at 0, but scoring starts at 1
+                                        // Add this question's weighted score
+                                        totalScore += ((competencyLevel / 5) * question.weightage);
+                                        // Add this question's weightage to the denominator
+                                        totalApplicableWeightage += question.weightage;
+                                    }
+                                    // For "Not applicable" and "I don't know", we don't add anything to either numerator or denominator
+                                }
+                            });
+                        });
+                    }
+                });
+                
+                // Calculate the percentage score based only on applicable questions
+                const calculatedScore = totalApplicableWeightage > 0 ? (totalScore / totalApplicableWeightage) * 100 : 0;
+                setCurrentScore(calculatedScore);
+            }, [responses]);
+
+            const handleResponseChange = (questionId, optionIndex) => {
+                setResponses(prev => ({
+                    ...prev,
+                    [questionId]: optionIndex
+                }));
+            };
+
+            const getScorePercentage = () => {
+                // currentScore is already calculated as a percentage (0-100)
+                return Math.round(currentScore * 100) / 100; // Round to 2 decimal places
+            };
+
+            // Function to get statistics about answered questions
+            const getQuestionStats = () => {
+                let totalQuestions = 0;
+                let answeredQuestions = 0;
+                let applicableQuestions = 0;
+                
+                Object.values(competencyData).forEach(area => {
+                    Object.values(area.sections).forEach(questions => {
+                        questions.forEach(question => {
+                            totalQuestions++;
+                            const response = responses[question.id];
+                            if (response !== null && response !== undefined) {
+                                answeredQuestions++;
+                                // Count as applicable if it's not "Not applicable" or "I don't know"
+                                if (response < question.options.length - 2) {
+                                    applicableQuestions++;
+                                }
+                            }
+                        });
+                    });
+                });
+                
+                return { totalQuestions, answeredQuestions, applicableQuestions };
+            };
+
+            const renderOptions = (question) => {
+                return question.options.map((option, index) => {
+                    // Determine the point value for this option
+                    let pointValue;
+                    if (index < question.options.length - 2) {
+                        const competencyLevel = index + 1; // Competency levels: 1, 2, 3, 4, 5
+                        // Calculate the weighted percentage contribution
+                        pointValue = (competencyLevel / 5) * question.weightage;
+                    } else {
+                        pointValue = 0; // "Not applicable" and "I don't know" = 0 points
+                    }
+
+                    return React.createElement('label', {
+                        key: index,
+                        className: "flex items-start space-x-3 p-3 hover:bg-blue-50 rounded-lg cursor-pointer border border-gray-200 mb-2"
+                    }, [
+                        React.createElement('input', {
+                            key: 'input',
+                            type: "radio",
+                            name: question.id,
+                            value: index,
+                            checked: responses[question.id] === index,
+                            onChange: () => handleResponseChange(question.id, index),
+                            className: "w-4 h-4 text-blue-600 mt-1 flex-shrink-0"
+                        }),
+                        React.createElement('div', {
+                            key: 'content',
+                            className: "flex-1"
+                        }, [
+                            React.createElement('span', {
+                                key: 'text',
+                                className: "text-sm text-gray-700 leading-relaxed"
+                            }, option),
+                            pointValue > 0 && React.createElement('span', {
+                                key: 'points',
+                                className: "ml-2 inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
+                            }, `+${pointValue.toFixed(2)}`),
+                            pointValue === 0 && React.createElement('span', {
+                                key: 'zero',
+                                className: "ml-2 inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full"
+                            }, "+0")
+                        ])
+                    ]);
+                });
+            };
+
+            return React.createElement('div', {
+                className: "max-w-4xl mx-auto p-6 bg-gray-50 min-h-screen"
+            }, [
+                React.createElement('div', {
+                    key: 'header',
+                    className: "mb-8"
+                }, [
+                    React.createElement('h1', {
+                        key: 'title',
+                        className: "text-3xl font-bold text-gray-900 mb-2"
+                    }, "Competency Dashboard"),
+                    React.createElement('p', {
+                        key: 'subtitle',
+                        className: "text-gray-600 mb-6"
+                    }, "Software Engineer Assessment"),
+                ]),
+
+                // Main Progress Bar (Non-sticky)
+                React.createElement('div', {
+                    key: 'main-progress',
+                    className: "bg-white rounded-lg shadow-md p-6 mb-6"
+                }, [
+                    React.createElement('div', {
+                        key: 'header',
+                        className: "flex items-center justify-between mb-4"
+                    }, [
+                        React.createElement('h2', {
+                            key: 'title',
+                            className: "text-lg font-semibold text-gray-700"
+                        }, "Competency Assessment Progress"),
+                        React.createElement('div', {
+                            key: 'score-info',
+                            className: "text-right"
+                        }, [
+                            React.createElement('span', {
+                                key: 'score',
+                                className: "text-sm font-medium text-gray-600"
+                            }, `Score: ${currentScore.toFixed(2)}`),
+                            React.createElement('div', {
+                                key: 'details',
+                                className: "text-xs text-gray-500 mt-1"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'level'
+                                }, (() => {
+                                    const current = getCurrentCompetencyLevel();
+                                    return current.tooltip ? `${current.name} ${current.tooltip}${current.subLevel}` : current.name;
+                                })()),
+                                React.createElement('div', {
+                                    key: 'stats'
+                                }, (() => {
+                                    const stats = getQuestionStats();
+                                    return `${stats.applicableQuestions} of ${stats.totalQuestions} questions applicable`;
+                                })())
+                            ])
+                        ])
+                    ]),
+                    
+                    // Main progress bar
+                    React.createElement('div', {
+                        key: 'progress-bar',
+                        className: "relative w-full bg-gray-200 rounded-full h-6 mb-4"
+                    }, [
+                        React.createElement('div', {
+                            key: 'fill',
+                            className: `${getCurrentCompetencyLevel().color} h-6 rounded-full transition-all duration-500 ease-out flex items-center justify-end pr-2`,
+                            style: { width: `${Math.min(getScorePercentage(), 100)}%` }
+                        }, getScorePercentage() > 8 && React.createElement('span', {
+                            className: "text-white text-xs font-bold"
+                        }, `${getScorePercentage().toFixed(1)}`))
+                    ]),
+                    
+                    // Milestones
+                    React.createElement('div', {
+                        key: 'milestones',
+                        className: "flex justify-between items-center text-xs text-gray-600 mb-4"
+                    }, Object.entries(competencyLevels).map(([level, data]) => {
+                        if (level === "0") return null;
+                        return React.createElement('div', {
+                            key: level,
+                            className: "text-center flex-1"
+                        }, [
+                            React.createElement('div', {
+                                key: 'dot',
+                                className: `w-2 h-2 rounded-full mx-auto mb-1 ${getScorePercentage() >= data.min_score ? data.color : 'bg-gray-300'}`
+                            }),
+                            React.createElement('div', {
+                                key: 'label',
+                                className: "font-semibold"
+                            }, data.tooltip || data.name),
+                            React.createElement('div', {
+                                key: 'threshold',
+                                className: "text-xs"
+                            }, `${data.min_score}`)
+                        ]);
+                    }).filter(Boolean)),
+                    
+                    React.createElement('div', {
+                        key: 'info',
+                        className: "text-xs text-gray-500 text-center"
+                    }, "Progress through competency levels: Beginner → Competent → Very Competent → Super Competent → Ridiculously Competent")
+                ]),
+
+                // Sub-level Progress Bar - STICKY
+                (() => {
+                    const current = getCurrentCompetencyLevel();
+                    const currentLevelData = competencyLevels[current.level.toString()];
+                    
+                    if (current.level > 0 && currentLevelData && currentLevelData.sub_levels.length > 1) {
+                        return React.createElement('div', {
+                            key: 'sticky-progress',
+                            className: "sticky top-0 z-10 bg-white rounded-lg shadow-md p-4 mb-6"
+                        }, [
+                            React.createElement('div', {
+                                key: 'title',
+                                className: "text-sm font-medium text-gray-700 mb-3 text-center"
+                            }, `${current.name} Progress: ${current.tooltip}${current.subLevel} of ${currentLevelData.sub_levels.length}`),
+                            React.createElement('div', {
+                                key: 'bars',
+                                className: "flex space-x-2"
+                            }, currentLevelData.sub_levels.map((threshold, index) => 
+                                React.createElement('div', {
+                                    key: index,
+                                    className: "flex-1"
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'bar',
+                                        className: `h-3 rounded-full ${getScorePercentage() >= threshold ? current.color : 'bg-gray-300'} transition-all duration-500`
+                                    }),
+                                    React.createElement('div', {
+                                        key: 'label',
+                                        className: "text-xs text-center mt-1 font-medium"
+                                    }, `${current.tooltip}${index + 1}`),
+                                    React.createElement('div', {
+                                        key: 'threshold',
+                                        className: "text-xs text-center text-gray-500"
+                                    }, `${threshold}`)
+                                ])
+                            ))
+                        ]);
+                    }
+                    return null;
+                })(),
+
+                // Questions
+                React.createElement('div', {
+                    key: 'questions',
+                    className: "space-y-8"
+                }, Object.entries(competencyData).map(([areaName, areaData]) =>
+                    React.createElement('div', {
+                        key: areaName,
+                        className: "card shadow-lg"
+                    }, [
+                        React.createElement('div', {
+                            key: 'header',
+                            className: `card-header ${
+                                areaName === "Technical execution" ? "bg-blue-600" :
+                                areaName === "Communication" ? "bg-green-600" :
+                                areaName === "Teamwork" ? "bg-yellow-600" :
+                                "bg-purple-600"
+                            } text-white`
+                        }, React.createElement('h2', {
+                            className: "card-title"
+                        }, areaName)),
+                        React.createElement('div', {
+                            key: 'content',
+                            className: "card-content"
+                        }, Object.entries(areaData.sections).map(([sectionName, questions]) =>
+                            React.createElement('div', {
+                                key: sectionName,
+                                className: "mb-8 last:mb-0"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'questions',
+                                    className: "space-y-8"
+                                }, questions.map((question) =>
+                                    React.createElement('div', {
+                                        key: question.id,
+                                        className: "bg-white rounded-lg p-6 shadow-sm border border-gray-200"
+                                    }, [
+                                        React.createElement('div', {
+                                            key: 'question-header',
+                                            className: "mb-4"
+                                        }, [
+                                            React.createElement('h4', {
+                                                key: 'title',
+                                                className: "text-base font-semibold text-gray-900 mb-2"
+                                            }, question.text),
+                                            React.createElement('span', {
+                                                key: 'weight',
+                                                className: "inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                                            }, `Weightage: ${question.weightage}`)
+                                        ]),
+                                        React.createElement('div', {
+                                            key: 'options',
+                                            className: "space-y-2"
+                                        }, renderOptions(question))
+                                    ])
+                                ))
+                            ])
+                        ))
+                    ])
+                )),
+
+                // Summary
+                React.createElement('div', {
+                    key: 'summary',
+                    className: "card mt-8 shadow-lg border-2 border-blue-200"
+                }, [
+                    React.createElement('div', {
+                        key: 'header',
+                        className: "card-header bg-gradient-to-r from-indigo-600 to-blue-700 text-white"
+                    }, React.createElement('h2', {
+                        className: "card-title"
+                    }, "Assessment Summary")),
+                    React.createElement('div', {
+                        key: 'content',
+                        className: "card-content"
+                    }, [
+                        // Current Level Display
+                        (() => {
+                            const current = getCurrentCompetencyLevel();
+                            return React.createElement('div', {
+                                key: 'current-level',
+                                className: "mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200"
+                            }, React.createElement('div', {
+                                className: "text-center"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'badge',
+                                    className: `inline-block px-4 py-2 rounded-full text-white font-bold text-lg ${current.color}`
+                                }, current.tooltip ? `${current.name} ${current.tooltip}${current.subLevel}` : current.name),
+                                React.createElement('div', {
+                                    key: 'label',
+                                    className: "text-sm text-gray-600 mt-2"
+                                }, "Your Current Competency Level")
+                            ]));
+                        })(),
+                        
+                        React.createElement('div', {
+                            key: 'stats',
+                            className: "grid grid-cols-1 md:grid-cols-3 gap-6"
+                        }, [
+                            React.createElement('div', {
+                                key: 'current',
+                                className: "text-center p-4 bg-blue-50 rounded-lg border border-blue-200"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'value',
+                                    className: "text-3xl font-bold text-blue-600"
+                                }, `${currentScore.toFixed(2)}%`),
+                                React.createElement('div', {
+                                    key: 'label',
+                                    className: "text-sm text-gray-600 mt-1"
+                                }, "Current Score")
+                            ]),
+                            React.createElement('div', {
+                                key: 'applicable',
+                                className: "text-center p-4 bg-green-50 rounded-lg border border-green-200"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'value',
+                                    className: "text-3xl font-bold text-green-600"
+                                }, (() => {
+                                    const stats = getQuestionStats();
+                                    return stats.applicableQuestions;
+                                })()),
+                                React.createElement('div', {
+                                    key: 'label',
+                                    className: "text-sm text-gray-600 mt-1"
+                                }, "Applicable Questions")
+                            ]),
+                            React.createElement('div', {
+                                key: 'total',
+                                className: "text-center p-4 bg-purple-50 rounded-lg border border-purple-200"
+                            }, [
+                                React.createElement('div', {
+                                    key: 'value',
+                                    className: "text-3xl font-bold text-purple-600"
+                                }, (() => {
+                                    const stats = getQuestionStats();
+                                    return stats.totalQuestions;
+                                })()),
+                                React.createElement('div', {
+                                    key: 'label',
+                                    className: "text-sm text-gray-600 mt-1"
+                                }, "Total Questions")
+                            ])
+                        ]),
+                        
+                        // Next Level Target
+                        (() => {
+                            const current = getCurrentCompetencyLevel();
+                            let nextTarget = null;
+                            
+                            // Find next milestone
+                            if (current.level >= 1 && current.level <= 4) {
+                                const currentLevelData = competencyLevels[current.level.toString()];
+                                
+                                // Check if there's a next sub-level in current level
+                                if (current.subLevel < currentLevelData.sub_levels.length) {
+                                    const nextSubLevel = current.subLevel + 1;
+                                    nextTarget = {
+                                        name: `${current.name} ${current.tooltip}${nextSubLevel}`,
+                                        percentage: currentLevelData.sub_levels[nextSubLevel - 1]
+                                    };
+                                } else {
+                                    // Move to next level
+                                    const nextLevel = current.level + 1;
+                                    if (nextLevel <= 5) {
+                                        const nextLevelData = competencyLevels[nextLevel.toString()];
+                                        nextTarget = {
+                                            name: `${nextLevelData.name} ${nextLevelData.tooltip}1`,
+                                            percentage: nextLevelData.sub_levels[0]
+                                        };
+                                    }
+                                }
+                            } else if (current.level === 0) {
+                                // From level 0 to B1
+                                nextTarget = {
+                                    name: "Beginner B1",
+                                    percentage: 26.0
+                                };
+                            } else if (current.level === -1) {
+                                // Below 20%, next target is level 0
+                                nextTarget = {
+                                    name: "Beginner",
+                                    percentage: 20.0
+                                };
+                            }
+                            
+                            if (nextTarget && current.percentage < nextTarget.percentage) {
+                                const pointsNeeded = nextTarget.percentage - current.percentage;
+                                return React.createElement('div', {
+                                    key: 'next-target',
+                                    className: "mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg"
+                                }, [
+                                    React.createElement('div', {
+                                        key: 'title',
+                                        className: "text-sm font-medium text-yellow-800 mb-2"
+                                    }, `🎯 Next Milestone: ${nextTarget.name}`),
+                                    React.createElement('div', {
+                                        key: 'info',
+                                        className: "text-xs text-yellow-700"
+                                    }, `You need ${pointsNeeded.toFixed(2)} more percentage points to reach the next level.`)
+                                ]);
+                            }
+                            
+                            if (current.percentage >= 100) {
+                                return React.createElement('div', {
+                                    key: 'congratulations',
+                                    className: "mt-6 p-4 bg-green-50 border border-green-200 rounded-lg"
+                                }, React.createElement('div', {
+                                    className: "text-sm font-medium text-green-800"
+                                }, "🎉 Congratulations! You've achieved the highest competency level!"));
+                            }
+                            
+                            return null;
+                        })(),
+                        
+                        React.createElement('div', {
+                            key: 'info',
+                            className: "mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg"
+                        }, React.createElement('p', {
+                            className: "text-sm text-amber-800"
+                        }, React.createElement('strong', null, "Scoring System: "), "Your score is calculated as a percentage based only on questions that are applicable to your role. Questions marked \"Not applicable to the current role\" or \"I don't know\" are completely excluded from the calculation and don't affect your score. Progress through: Beginner (B1-B3) → Competent (C1-C3) → Very Competent (VC1-VC3) → Super Competent (SC1-SC3) → Ridiculously Competent (RC)."))
+                    ])
+                ])
+            ]);
+        };
+
+        ReactDOM.render(React.createElement(CompetencyAssessment), document.getElementById('root'));
+    </script>
+</body>
+</html>
